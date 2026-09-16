@@ -1,0 +1,72 @@
+[
+  {
+    "name": "self",
+    "mer_id": "61266001",
+    "mer_salt": "pq1z400jlg",
+    "uuid_env": "CLOUD_UUID_SELF",
+    "token_env": "CLOUD_TOKEN_SELF",
+    "realname": "演示用户A",
+    "mobile": "13800000001",
+    "percode": "20240001",
+    "use_history": true,
+    "scores": {
+      "番茄炒蛋": 7,
+      "椒盐大排": 6,
+      "炒青菜": 4,
+      "红烧肉": 3,
+      "土豆烧肉": 0
+    },
+    "blacklist": ["肥肉", "糖醋"],
+    "negative_scores": {"虾": -8, "鱼": -8},
+    "negative_exceptions": ["虾丸", "鱼丸"],
+    "prefer_overrides": {},
+    "order_rules": {
+      "require_both_meals_weekday": [6],
+      "grab_on_weekday": 5,
+      "cancelled": []
+    },
+    "delivery": {
+      "name": "演示用户A",
+      "mobile": "13800000001",
+      "area1": "温岭第二中学",
+      "area2": "食堂",
+      "date": "",
+      "time": ""
+    },
+    "order_mode": "1",
+    "min_score": 1,
+    "meals": ["午餐", "晚餐"]
+  },
+  {
+    "name": "friend",
+    "mer_id": "61266001",
+    "mer_salt": "pq1z400jlg",
+    "uuid_env": "CLOUD_UUID_FRIEND",
+    "token_env": "CLOUD_TOKEN_FRIEND",
+    "realname": "演示用户B",
+    "mobile": "13800000002",
+    "percode": "20240002",
+    "use_history": false,
+    "scores": {},
+    "blacklist": [],
+    "negative_scores": {},
+    "negative_exceptions": [],
+    "prefer_overrides": {},
+    "order_rules": {
+      "require_both_meals_weekday": [6],
+      "grab_on_weekday": 5,
+      "cancelled": []
+    },
+    "delivery": {
+      "name": "演示用户B",
+      "mobile": "13800000002",
+      "area1": "温岭第二中学",
+      "area2": "食堂",
+      "date": "",
+      "time": ""
+    },
+    "order_mode": "1",
+    "min_score": 0,
+    "meals": ["午餐", "晚餐"]
+  }
+]

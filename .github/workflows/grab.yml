@@ -1,0 +1,59 @@
+name: cloud-grab
+
+on:
+  schedule:
+    # 每天 06:00 北京时间 = 22:00 UTC（前一天）
+    - cron: "0 22 * * *"
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "YYYYMMDD，默认今天"
+        required: false
+        default: ""
+      dry_run:
+        description: "仅选餐不下单 true/false"
+        required: false
+        default: "true"
+
+jobs:
+  grab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CLOUD_UUID_SELF: ${{ secrets.CLOUD_UUID_SELF }}
+      CLOUD_TOKEN_SELF: ${{ secrets.CLOUD_TOKEN_SELF }}
+      CLOUD_UUID_FRIEND: ${{ secrets.CLOUD_UUID_FRIEND }}
+      CLOUD_TOKEN_FRIEND: ${{ secrets.CLOUD_TOKEN_FRIEND }}
+      CLOUD_UUID_JIN: ${{ secrets.CLOUD_UUID_JIN }}
+      CLOUD_TOKEN_JIN: ${{ secrets.CLOUD_TOKEN_JIN }}
+      PUSHPLUS_TOKEN: ${{ secrets.PUSHPLUS_TOKEN }}
+      BARK_KEY: ${{ secrets.BARK_KEY }}
+      SENDKEY: ${{ secrets.SENDKEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: install deps
+        run: pip install requests
+      - name: run cloud grab
+        id: run
+        run: |
+          ARGS=""
+          if [ "${{ inputs.date }}" != "" ]; then ARGS="$ARGS --date ${{ inputs.date }}"; fi
+          if [ "${{ inputs.dry_run }}" != "false" ] && [ "${{ inputs.dry_run }}" != "" ]; then ARGS="$ARGS --dry-run"; fi
+          chmod +x notify.sh
+          set -o pipefail
+          python cloud_order.py $ARGS 2>&1 | tee .run.log
+      - name: notify success
+        if: ${{ steps.run.outcome == 'success' }}
+        run: |
+          SUMMARY="$(grep -E '接单|已存在|已订|\[DRY\]|缓存优选|退餐名单|无菜单|跳过|得分' .run.log \
+            | tail -n 40 || true)"
+          COUNT="$(grep -Ec '\[DRY\]|接单|成功' .run.log || true)"
+          if [ -z "$SUMMARY" ]; then SUMMARY=".run.log 无摘要，详见 Actions 日志"; fi
+          bash notify.sh "自动抢餐✅ 完成（$(date '+%H:%M')）成交 $COUNT 项" "@-stdin" <<< "$SUMMARY"
+      - name: notify failure
+        if: ${{ failure() }}
+        run: |
+          { echo "**自动抢餐失败**（$(date '+%m-%d %H:%M') 北京时间）"; echo ""; echo "\`\`\`"; tail -n 30 .run.log 2>/dev/null || echo '（无日志）'; echo "\`\`\`"; } | bash notify.sh "自动抢餐❌ 失败告警" "-stdin" || true

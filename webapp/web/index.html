@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>自动点餐 · 管理面板</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f5f5f5;color:#333;min-height:100vh}
+.header{background:#2563eb;color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:10}
+.header h1{font-size:16px;font-weight:600}
+.header .user-info{font-size:13px;opacity:.8}
+.header button{background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3);color:#fff;padding:4px 12px;border-radius:6px;font-size:12px;cursor:pointer}
+.tab-bar{display:flex;background:#fff;border-bottom:1px solid #e5e7eb;overflow-x:auto;position:sticky;top:48px;z-index:9}
+.tab-bar button{flex:1;min-width:72px;padding:10px 8px;border:none;background:none;font-size:13px;color:#666;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
+.tab-bar button.active{color:#2563eb;border-bottom-color:#2563eb;font-weight:600}
+.tab{display:none;padding:16px;max-width:640px;margin:0 auto}
+.tab.active{display:block}
+.card{background:#fff;border-radius:10px;padding:16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.card h3{font-size:14px;color:#555;margin-bottom:8px}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600}
+.badge.ok{background:#dcfce7;color:#166534}
+.badge.err{background:#fee2e2;color:#991b1b}
+.badge.warn{background:#fef3c7;color:#92400e}
+.form-row{margin-bottom:10px}
+.form-row label{display:block;font-size:12px;color:#666;margin-bottom:3px}
+.form-row input,.form-row select,.form-row textarea{width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:14px}
+.form-row textarea{min-height:60px;resize:vertical}
+.btn{padding:10px 20px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s}
+.btn.primary{background:#2563eb;color:#fff}
+.btn.primary:hover{background:#1d4ed8}
+.btn.danger{background:#dc2626;color:#fff}
+.btn.danger:hover{background:#b91c1c}
+.btn.secondary{background:#e5e7eb;color:#333}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.status-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f3f4f6;font-size:13px}
+.status-row:last-child{border-bottom:none}
+.status-row .label{color:#666}
+.meal-grid{display:grid;gap:8px}
+.meal-item{background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:10px;display:flex;justify-content:space-between;align-items:center}
+.meal-item .day{font-size:12px;color:#666}
+.meal-item .food{font-size:14px;font-weight:500}
+.meal-item .price{font-size:12px;color:#2563eb}
+.score-grid{display:grid;gap:6px}
+.score-item{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f3f4f6}
+.score-item .dish{flex:1;font-size:13px}
+.score-item select{width:50px;padding:4px;border:1px solid #d1d5db;border-radius:4px;font-size:13px}
+.score-item .del{color:#dc2626;cursor:pointer;font-size:16px;padding:0 4px}
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:10px 20px;border-radius:8px;font-size:13px;z-index:100;opacity:0;transition:opacity .3s}
+.toast.show{opacity:1}
+.loading{display:inline-block;width:16px;height:16px;border:2px solid #ddd;border-top-color:#2563eb;border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty{text-align:center;color:#999;padding:30px;font-size:13px}
+@media(max-width:480px){.tab{padding:12px}.card{padding:12px}}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>自动点餐</h1>
+  <div class="user-info" id="headerUser"></div>
+</div>
+<div class="tab-bar" id="tabBar">
+  <button class="active" data-tab="overview">总览</button>
+  <button data-tab="scores">评分</button>
+  <button data-tab="pref">预选</button>
+  <button data-tab="bind">绑卡</button>
+  <button data-tab="admin" id="adminTab" style="display:none">管理</button>
+</div>
+
+<div class="tab active" id="tab-overview">
+  <div class="card">
+    <h3>账号状态</h3>
+    <div id="overviewStatus"><div class="empty">加载中…</div></div>
+  </div>
+  <div class="card">
+    <h3>未来 7 天订单</h3>
+    <div class="meal-grid" id="overviewOrders"><div class="empty">加载中…</div></div>
+  </div>
+  <div class="card">
+    <h3>最近运行</h3>
+    <div id="overviewRuns"><div class="empty">加载中…</div></div>
+  </div>
+</div>
+
+<div class="tab" id="tab-scores">
+  <div class="card">
+    <h3>评分管理（7=超爱, 5-6=喜欢, 3-4=一般, 1-2=凑合, 0=不吃）</h3>
+    <div id="scoreList" class="score-grid"></div>
+    <div style="margin-top:10px">
+      <div style="display:flex;gap:8px">
+        <input id="newDish" placeholder="添加菜品" style="flex:1;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px">
+        <select id="newScore" style="width:60px;padding:4px;border:1px solid #d1d5db;border-radius:4px">
+          <option value="7">7</option><option value="6">6</option><option value="5">5</option>
+          <option value="4">4</option><option value="3">3</option><option value="2">2</option>
+          <option value="1">1</option><option value="0" selected>0</option>
+        </select>
+        <button class="btn primary" onclick="addScore()" style="padding:6px 12px">+</button>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>黑名单（含关键词的菜永不选）</h3>
+    <div id="blacklist"></div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <input id="newBlack" placeholder="添加关键词" style="flex:1;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px">
+      <button class="btn primary" onclick="addBlack()" style="padding:6px 12px">+</button>
+    </div>
+  </div>
+  <div class="card">
+    <h3>最低分 / 偏好</h3>
+    <div class="form-row"><label>最低分（低于此分不选）</label><input type="number" id="minScore" step="0.5" min="0" max="7"></div>
+    <div class="form-row"><label><input type="checkbox" id="preferCheaper"> 同分选便宜</label></div>
+  </div>
+  <button class="btn primary" onclick="saveScores()" style="width:100%;margin-top:12px">保存评分</button>
+</div>
+
+<div class="tab" id="tab-pref">
+  <div class="card">
+    <h3>手动预选套餐（覆盖自动优选）</h3>
+    <div id="prefList"></div>
+    <button class="btn secondary" onclick="clearOverrides()" style="width:100%;margin-top:12px">清除全部手动预选</button>
+  </div>
+</div>
+
+<div class="tab" id="tab-bind">
+  <div class="card">
+    <h3>绑定/重新绑定点餐账号</h3>
+    <div class="form-row"><label>饭卡号</label><input id="bindPercode" placeholder="8位数字"></div>
+    <div class="form-row"><label>真实姓名</label><input id="bindRealname" placeholder="与点餐系统一致"></div>
+    <div class="form-row"><label>手机号</label><input id="bindMobile" placeholder="收验证码"></div>
+    <button class="btn primary" id="bindBtn" onclick="bindStart()" style="width:100%">发送验证码</button>
+    <div id="bindCodeArea" style="display:none;margin-top:12px">
+      <div class="form-row"><label>验证码</label><input id="bindCode" placeholder="4位数字" maxlength="4"></div>
+      <button class="btn primary" onclick="bindSubmit()" style="width:100%">确认绑定</button>
+    </div>
+  </div>
+</div>
+
+<div class="tab" id="tab-admin">
+  <div class="card">
+    <h3>用户管理</h3>
+    <div id="adminUsers"><div class="empty">加载中…</div></div>
+  </div>
+  <div class="card">
+    <h3>操作日志</h3>
+    <div id="adminAudit"><div class="empty">加载中…</div></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
+
+function toast(msg, ms=2500){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),ms); }
+
+async function api(path, opts={}){
+  const r = await fetch(path, {headers:{'Content-Type':'application/json'}, ...opts});
+  const d = await r.json();
+  if(!d.ok && d.error) toast(d.error);
+  return d;
+}
+
+let me = null, prefs = null;
+
+async function loadMe(){
+  me = await api('/api/me');
+  if(!me.ok){ window.location.hash='login'; return; }
+  me = me.user;
+  $('#headerUser').textContent = me.realname || me.username;
+  if(me.role==='admin') $('#adminTab').style.display='';
+  if(!me.bound){
+    toast('请先绑定点餐账号');
+  }
+}
+
+// Tab switching
+$$('.tab-bar button').forEach(b=>{
+  b.addEventListener('click',()=>{
+    $$('.tab-bar button').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    $$('.tab').forEach(x=>x.classList.remove('active'));
+    $(`#tab-${b.dataset.tab}`).classList.add('active');
+  });
+});
+
+// Overview
+async function loadOverview(){
+  // status from local status.json (fetch from GitHub raw or static)
+  // simplified: show bound status from /api/me
+  const s = $('#overviewStatus');
+  s.innerHTML = `<div class="status-row"><span class="label">用户名</span><span>${me.username}</span></div>
+    <div class="status-row"><span class="label">真实姓名</span><span>${me.realname||'未绑定'}</span></div>
+    <div class="status-row"><span class="label">饭卡号</span><span>${me.percode||'未绑定'}</span></div>
+    <div class="status-row"><span class="label">手机</span><span>${me.mobile?'****'+me.mobile.slice(-4):'未绑定'}</span></div>
+    <div class="status-row"><span class="label">状态</span><span class="badge ${me.bound?'ok':'err'}">${me.bound?'已绑定':'未绑定'}</span></div>`;
+}
+
+// Scores
+async function loadScores(){
+  const r = await api('/api/prefs');
+  if(!r.ok) return;
+  prefs = r.prefs;
+  renderScores();
+  $('#minScore').value = prefs.min_score;
+  $('#preferCheaper').checked = prefs.prefer_cheaper;
+}
+
+function renderScores(){
+  const el = $('#scoreList');
+  const scores = prefs.scores||{};
+  const items = Object.entries(scores).sort((a,b)=>b[1]-a[1]);
+  if(!items.length){ el.innerHTML='<div class="empty">暂无评分，添加菜品开始配置</div>'; return; }
+  el.innerHTML = items.map(([dish,score])=>`
+    <div class="score-item">
+      <span class="dish">${dish}</span>
+      <select onchange="prefs.scores['${dish}']=+this.value">
+        ${[7,6,5,4,3,2,1,0].map(v=>`<option value="${v}" ${v==score?'selected':''}>${v}</option>`).join('')}
+      </select>
+      <span class="del" onclick="delete prefs.scores['${dish}'];renderScores()">×</span>
+    </div>`).join('');
+}
+
+function addScore(){
+  const dish=$('#newDish').value.trim(), score=+$('#newScore').value;
+  if(!dish){toast('请输入菜品名');return;}
+  if(!prefs) prefs={scores:{}};
+  if(!prefs.scores) prefs.scores={};
+  prefs.scores[dish]=score;
+  $('#newDish').value='';
+  renderScores();
+}
+
+function renderBlacklist(){
+  const el=$('#blacklist');
+  const bl=prefs.blacklist||[];
+  el.innerHTML=bl.map(k=>`<span style="display:inline-block;background:#fee2e2;color:#991b1b;padding:3px 8px;border-radius:6px;font-size:12px;margin:2px">${k} <span style="cursor:pointer" onclick="removeBlack('${k}')">×</span></span>`).join('');
+}
+
+function addBlack(){
+  const k=$('#newBlack').value.trim(); if(!k)return;
+  if(!prefs) prefs={blacklist:[]};
+  if(!prefs.blacklist) prefs.blacklist=[];
+  prefs.blacklist.push(k); $('#newBlack').value=''; renderBlacklist();
+}
+
+function removeBlack(k){ prefs.blacklist=prefs.blacklist.filter(x=>x!==k); renderBlacklist(); }
+
+async function saveScores(){
+  prefs.min_score=+$('#minScore').value;
+  prefs.prefer_cheaper=$('#preferCheaper').checked;
+  const r=await api('/api/prefs',{method:'POST',body:JSON.stringify(prefs)});
+  if(r.ok) toast('评分已保存');
+}
+
+// Preferences (pre-selected meals)
+function renderPref(){
+  const el=$('#prefList');
+  const ov=prefs.prefer_overrides||{};
+  const items=Object.entries(ov);
+  if(!items.length){el.innerHTML='<div class="empty">暂无手动预选，当前由系统自动优选</div>';return;}
+  el.innerHTML=items.map(([k,v])=>`<div class="status-row"><span class="label">${k}</span><span>套餐 gid: ${v} <span style="cursor:pointer;color:#dc2626" onclick="clearOneOverride('${k}')">×</span></span></div>`).join('');
+}
+
+function clearOverrides(){ prefs.prefer_overrides={}; api('/api/prefs',{method:'POST',body:JSON.stringify({prefer_overrides:{}})}).then(r=>{if(r.ok)toast('已清除');renderPref();}); }
+function clearOneOverride(k){ delete prefs.prefer_overrides[k]; api('/api/prefs',{method:'POST',body:JSON.stringify({prefer_overrides:prefs.prefer_overrides})}).then(()=>renderPref()); }
+
+// Bind
+async function bindStart(){
+  const percode=$('#bindPercode').value.trim(), realname=$('#bindRealname').value.trim(), mobile=$('#bindMobile').value.trim();
+  if(!percode||!realname||!mobile){toast('请填写完整');return;}
+  $('#bindBtn').disabled=true; $('#bindBtn').textContent='发送中…';
+  const r=await api('/api/bind/start',{method:'POST',body:JSON.stringify({percode,realname,mobile})});
+  $('#bindBtn').disabled=false; $('#bindBtn').textContent='发送验证码';
+  if(r.ok){ $('#bindCodeArea').style.display=''; toast('验证码已发送'); }
+}
+
+async function bindSubmit(){
+  const code=$('#bindCode').value.trim();
+  if(!code||code.length!==4){toast('请输入4位验证码');return;}
+  const r=await api('/api/bind/submit',{method:'POST',body:JSON.stringify({code})});
+  if(r.ok){ toast('绑定成功！'); loadMe(); }
+}
+
+// Admin
+async function loadAdmin(){
+  if(!me||me.role!=='admin') return;
+  const r=await api('/api/admin/users');
+  if(!r.ok) return;
+  const el=$('#adminUsers');
+  el.innerHTML=r.users.map(u=>`<div class="status-row">
+    <span>${u.username} (${u.realname||'未绑'}) <span class="badge ${u.bound?'ok':'err'}">${u.bound?'已绑':'未绑'}</span> <span class="badge ${u.role==='admin'?'ok':''}">${u.role}</span></span>
+    <span style="font-size:12px;color:#666">${u.created_at||''}</span>
+  </div>`).join('');
+
+  const a=await api('/api/admin/audit');
+  if(a.ok){
+    $('#adminAudit').innerHTML=a.logs.map(l=>`<div class="status-row"><span class="label">${l.created_at} ${l.username||''} ${l.action}</span><span style="font-size:12px">${l.detail||''}</span></div>`).join('');
+  }
+}
+
+// Init
+(async()=>{
+  await loadMe();
+  if(!me) return;
+  await loadScores();
+  loadOverview();
+  renderBlacklist();
+  renderPref();
+  loadAdmin();
+})();
+</script>
+</body>
+</html>

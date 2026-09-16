@@ -1,0 +1,61 @@
+name: cloud-preview
+
+on:
+  schedule:
+    # 每周五 21:00 北京时间 = 13:00 UTC
+    - cron: "0 13 * * 5"
+  workflow_dispatch:
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CLOUD_UUID_SELF: ${{ secrets.CLOUD_UUID_SELF }}
+      CLOUD_TOKEN_SELF: ${{ secrets.CLOUD_TOKEN_SELF }}
+      CLOUD_UUID_FRIEND: ${{ secrets.CLOUD_UUID_FRIEND }}
+      CLOUD_TOKEN_FRIEND: ${{ secrets.CLOUD_TOKEN_FRIEND }}
+      CLOUD_UUID_JIN: ${{ secrets.CLOUD_UUID_JIN }}
+      CLOUD_TOKEN_JIN: ${{ secrets.CLOUD_TOKEN_JIN }}
+      PUSHPLUS_TOKEN: ${{ secrets.PUSHPLUS_TOKEN }}
+      BARK_KEY: ${{ secrets.BARK_KEY }}
+      SENDKEY: ${{ secrets.SENDKEY }}
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: install deps
+        run: pip install requests
+      - name: run cloud preview
+        id: run
+        run: |
+          chmod +x notify.sh
+          set -o pipefail
+          python cloud_order.py --preview 2>&1 | tee .preview.log
+      - name: push preview artifacts
+        if: ${{ steps.run.outcome == 'success' }}
+        run: |
+          git config user.name "auto-preview"
+          git config user.email "actions@users.noreply.github.com"
+          git add .re/preview_cache.json .re/preview.md
+          if git diff --cached --quiet; then
+            echo "无变化，跳过提交"
+          else
+            git commit -m "preview: 下周六至下下周六优选缓存 @$(date -u +%Y-%m-%dT%H:%MZ)"
+            git push
+          fi
+      - name: notify success
+        if: ${{ steps.run.outcome == 'success' }}
+        run: |
+          if [ -f .re/preview.md ]; then
+            bash notify.sh "📅 下周菜单预演（周五更新）" "@.re/preview.md"
+          else
+            bash notify.sh "📅 下周菜单预演" "（未生成 preview.md）"
+          fi
+      - name: notify failure
+        if: ${{ failure() }}
+        run: |
+          { echo "**周五预演失败**（$(date '+%m-%d %H:%M') 北京时间）"; echo ""; echo "\`\`\`"; tail -n 30 .preview.log 2>/dev/null || echo '（无日志）'; echo "\`\`\`"; } | bash notify.sh "自动抢餐❌ 预演失败" "-stdin" || true

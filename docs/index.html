@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>自动点餐 · 面板</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f5f5f5;color:#333;min-height:100vh}
+.header{background:#2563eb;color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:10}
+.header h1{font-size:16px;font-weight:600}
+.header button{background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3);color:#fff;padding:4px 12px;border-radius:6px;font-size:12px;cursor:pointer}
+.tab-bar{display:flex;background:#fff;border-bottom:1px solid #e5e7eb;overflow-x:auto;position:sticky;top:48px;z-index:9}
+.tab-bar button{flex:1;min-width:64px;padding:10px 6px;border:none;background:none;font-size:13px;color:#666;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
+.tab-bar button.active{color:#2563eb;border-bottom-color:#2563eb;font-weight:600}
+.tab{display:none;padding:16px;max-width:640px;margin:0 auto}
+.tab.active{display:block}
+.card{background:#fff;border-radius:10px;padding:16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.card h3{font-size:14px;color:#555;margin-bottom:8px}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600}
+.badge.ok{background:#dcfce7;color:#166534}
+.badge.err{background:#fee2e2;color:#991b1b}
+.form-row{margin-bottom:10px}
+.form-row label{display:block;font-size:12px;color:#666;margin-bottom:3px}
+.form-row input,.form-row select{width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:14px}
+.btn{padding:10px 20px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer}
+.btn.primary{background:#2563eb;color:#fff}
+.btn.primary:hover{background:#1d4ed8}
+.btn.secondary{background:#e5e7eb;color:#333}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.status-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f3f4f6;font-size:13px}
+.status-row:last-child{border-bottom:none}
+.score-item{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f3f4f6}
+.score-item .dish{flex:1;font-size:13px}
+.score-item select{width:50px;padding:4px;border:1px solid #d1d5db;border-radius:4px;font-size:13px}
+.score-item .del{color:#dc2626;cursor:pointer;font-size:16px;padding:0 4px}
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:10px 20px;border-radius:8px;font-size:13px;z-index:100;opacity:0;transition:opacity .3s}
+.toast.show{opacity:1}
+.empty{text-align:center;color:#999;padding:30px;font-size:13px}
+.tag{display:inline-block;background:#e0e7ff;color:#3730a3;padding:2px 8px;border-radius:6px;font-size:11px;margin:2px}
+@media(max-width:480px){.tab{padding:12px}.card{padding:12px}}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1 id="headerTitle">自动点餐</h1>
+  <div><span id="headerUser" style="font-size:13px;margin-right:8px"></span><button onclick="logout()" id="logoutBtn" style="display:none">退出</button></div>
+</div>
+<div class="tab-bar" id="tabBar" style="display:none">
+  <button class="active" data-tab="overview">总览</button>
+  <button data-tab="scores">评分</button>
+  <button data-tab="bind">绑卡</button>
+  <button data-tab="admin" id="adminTab" style="display:none">管理</button>
+</div>
+
+<!-- 登录/注册 -->
+<div class="tab active" id="tab-auth">
+  <div class="card" id="loginCard">
+    <h3>登录</h3>
+    <div class="form-row"><label>手机号</label><input id="loginMobile" placeholder="注册时的手机号" inputmode="numeric"></div>
+    <div class="form-row"><label>姓名</label><input id="loginName" placeholder="真实姓名"></div>
+    <button class="btn primary" onclick="doLogin()" style="width:100%">登录</button>
+    <p style="text-align:center;margin-top:12px;font-size:13px;color:#666">新同学？<a href="#" onclick="showRegister();return false">注册</a></p>
+  </div>
+  <div class="card" id="registerCard" style="display:none">
+    <h3>注册</h3>
+    <div class="form-row"><label>注册口令</label><input id="regPasscode" placeholder="请输入班级口令"></div>
+    <div class="form-row"><label>手机号</label><input id="regMobile" placeholder="收验证码的手机号" inputmode="numeric"></div>
+    <div class="form-row"><label>真实姓名</label><input id="regName" placeholder="与点餐系统一致"></div>
+    <button class="btn primary" onclick="doRegister()" style="width:100%">注册</button>
+    <p style="text-align:center;margin-top:12px;font-size:13px;color:#666">已有账号？<a href="#" onclick="showLogin();return false">登录</a></p>
+  </div>
+  <div class="card">
+    <h3>GitHub 配置（仅管理员需要）</h3>
+    <div class="form-row"><label>GitHub Token（Fine-grained, contents:write）</label><input id="ghToken" type="password" placeholder="ghp_xxx"></div>
+    <div class="form-row"><label>仓库</label><input id="ghRepo" value="explore0-jpg/dlorder-cloud"></div>
+    <button class="btn secondary" onclick="saveGHConfig()" style="width:100%">保存</button>
+  </div>
+</div>
+
+<!-- 总览 -->
+<div class="tab" id="tab-overview">
+  <div class="card">
+    <h3>我的账号</h3>
+    <div id="overviewStatus"><div class="empty">加载中…</div></div>
+  </div>
+  <div class="card">
+    <h3>抢单规则</h3>
+    <div id="overviewRules"><div class="empty">加载中…</div></div>
+  </div>
+</div>
+
+<!-- 评分 -->
+<div class="tab" id="tab-scores">
+  <div class="card">
+    <h3>评分管理（7=超爱, 5-6=喜欢, 3-4=一般, 1-2=凑合, 0=不吃）</h3>
+    <div id="scoreList"></div>
+    <div style="margin-top:10px;display:flex;gap:8px">
+      <input id="newDish" placeholder="添加菜品" style="flex:1;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px">
+      <select id="newScore" style="width:60px;padding:4px;border:1px solid #d1d5db;border-radius:4px">
+        <option value="7">7</option><option value="6">6</option><option value="5">5</option>
+        <option value="4">4</option><option value="3">3</option><option value="2">2</option>
+        <option value="1">1</option><option value="0" selected>0</option>
+      </select>
+      <button class="btn primary" onclick="addScore()" style="padding:6px 12px">+</button>
+    </div>
+  </div>
+  <div class="card">
+    <h3>黑名单（含关键词的菜永不选）</h3>
+    <div id="blacklist"></div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <input id="newBlack" placeholder="添加关键词" style="flex:1;padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px">
+      <button class="btn primary" onclick="addBlack()" style="padding:6px 12px">+</button>
+    </div>
+  </div>
+  <div class="card">
+    <h3>最低分 / 偏好</h3>
+    <div class="form-row"><label>最低分（低于此分不选）</label><input type="number" id="minScore" step="0.5" min="0" max="7"></div>
+    <div class="form-row"><label><input type="checkbox" id="preferCheaper"> 同分选便宜</label></div>
+  </div>
+  <button class="btn primary" onclick="saveScores()" style="width:100%;margin-top:12px">保存评分</button>
+</div>
+
+<!-- 绑卡 -->
+<div class="tab" id="tab-bind">
+  <div class="card">
+    <h3>绑定/重新绑定点餐账号</h3>
+    <div class="form-row"><label>饭卡号</label><input id="bindPercode" placeholder="8位数字" inputmode="numeric"></div>
+    <div class="form-row"><label>手机号</label><input id="bindMobile" placeholder="收验证码" inputmode="numeric"></div>
+    <button class="btn primary" id="bindBtn" onclick="bindStart()" style="width:100%">发送验证码</button>
+    <div id="bindCodeArea" style="display:none;margin-top:12px">
+      <div class="form-row"><label>验证码</label><input id="bindCode" placeholder="4位数字" maxlength="4" inputmode="numeric"></div>
+      <button class="btn primary" onclick="bindSubmit()" style="width:100%">确认绑定</button>
+    </div>
+  </div>
+</div>
+
+<!-- 管理 -->
+<div class="tab" id="tab-admin">
+  <div class="card">
+    <h3>用户管理</h3>
+    <div id="adminUsers"><div class="empty">加载中…</div></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $=s=>document.querySelector(s);
+function toast(m,ms=2500){const t=$('#toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),ms)}
+function esc(s){if(s==null)return'';const d=document.createElement('div');d.textContent=String(s);return d.innerHTML;}
+
+// --- GitHub API (read-only for most users, write for admin) ---
+let GH_TOKEN=localStorage.getItem('gh_token')||'';
+let GH_REPO=localStorage.getItem('gh_repo')||'explore0-jpg/dlorder-cloud';
+const ghH=()=>({'Authorization':'token '+GH_TOKEN,'Accept':'application/vnd.github.v3+json','Content-Type':'application/json'});
+
+async function ghGet(path){
+  // 首先尝试从 raw.githubusercontent.com 读（公开仓库，无需 token）
+  if(!GH_TOKEN||path.includes('/contents/')){
+    try{
+      const rawUrl=`https://raw.githubusercontent.com/${GH_REPO}/main${path.replace('/contents/','/')}`;
+      const r=await fetch(rawUrl);
+      if(r.ok)return{content:btoa(await r.text())};
+    }catch(e){}
+  }
+  const r=await fetch(`https://api.github.com/repos/${GH_REPO}${path}`,{headers:ghH()});
+  if(!r.ok)throw new Error(`GitHub ${r.status}`);
+  return r.json();
+}
+async function ghCommit(msg,content,sha){
+  if(!GH_TOKEN)throw new Error('需要 GitHub Token 才能保存');
+  const r=await fetch(`https://api.github.com/repos/${GH_REPO}/contents/users.cloud.json`,{
+    method:'PUT',headers:ghH(),
+    body:JSON.stringify({message:msg,content,sha})
+  });
+  if(!r.ok)throw new Error(`推送失败 ${r.status}`);
+  return r.json();
+}
+
+// --- Auth ---
+let currentUser=null;
+let usersCloud=[];
+
+function saveGHConfig(){
+  GH_TOKEN=$('#ghToken').value.trim()||GH_TOKEN;
+  GH_REPO=$('#ghRepo').value.trim()||GH_REPO;
+  localStorage.setItem('gh_token',GH_TOKEN);
+  localStorage.setItem('gh_repo',GH_REPO);
+  toast('配置已保存');
+}
+
+function showRegister(){$('#loginCard').style.display='none';$('#registerCard').style.display=''}
+function showLogin(){$('#loginCard').style.display='';$('#registerCard').style.display='none'}
+
+async function loadUsers(){
+  // 优先走 GitHub API（稳定），其次 raw（公开仓库无需 token）
+  try{
+    const apiUrl=`https://api.github.com/repos/${GH_REPO}/contents/users.cloud.json`;
+    const r=await fetch(apiUrl,{headers:GH_TOKEN?{Authorization:'token '+GH_TOKEN}:{}});
+    if(r.ok){
+      const d=await r.json();
+      usersCloud=JSON.parse(decodeURIComponent(escape(atob(d.content))));
+      return true;
+    }
+  }catch(e){}
+  // fallback: raw
+  try{
+    const rawUrl=`https://raw.githubusercontent.com/${GH_REPO}/main/users.cloud.json`;
+    const r=await fetch(rawUrl);
+    if(!r.ok)throw new Error('读取失败');
+    usersCloud=JSON.parse(await r.text());
+    return true;
+  }catch(e){
+    toast('加载用户数据失败: '+e.message);
+    return false;
+  }
+}
+
+async function doLogin(){
+  const mobile=$('#loginMobile').value.trim();
+  const name=$('#loginName').value.trim();
+  if(!mobile||!name){toast('请填写手机号和姓名');return;}
+  if(!await loadUsers())return;
+  const user=usersCloud.find(u=>{
+    const m=u.mobile||((u.delivery||{}).mobile)||'';
+    const n=u.realname||((u.delivery||{}).name)||'';
+    return m===mobile&&(n===name);
+  });
+  if(!user){toast('未找到匹配的账号，请先注册');return;}
+  currentUser={...user,role:user.name==='liangmingchao'||user.name==='self'?'admin':'user'};
+  localStorage.setItem('user',JSON.stringify(currentUser));
+  enterApp();
+  toast('欢迎，'+(currentUser.realname||currentUser.name));
+}
+
+async function doRegister(){
+  const mobile=$('#regMobile').value.trim();
+  const name=$('#regName').value.trim();
+  const passcode=$('#regPasscode').value.trim();
+  if(!mobile||!name||!passcode){toast('请填写完整');return;}
+  if(passcode!=='wlsdezx'){toast('口令错误');return;}
+  if(!GH_TOKEN){toast('管理员未配置 GitHub Token，无法注册');return;}
+  if(!await loadUsers())return;
+  if(usersCloud.find(u=>u.mobile===mobile)){toast('该手机号已注册');return;}
+  const username='user_'+mobile.slice(-4);
+  const newUser={name:username,mer_id:'61266001',mer_salt:'pq1z400jlg',
+    uuid_env:'CLOUD_UUID_'+username.toUpperCase(),token_env:'CLOUD_TOKEN_'+username.toUpperCase(),
+    scores:{},blacklist:[],negative_scores:{},negative_exceptions:[],prefer_overrides:{},
+    order_rules:{require_both_meals_weekday:[6],grab_on_weekday:5,cancelled:[]},
+    delivery:{name,mobile,area1:'温岭第二中学',area2:'食堂',date:'',time:''},
+    order_mode:'1',min_score:0,meals:['午餐','晚餐'],
+    percode:'',realname:name,mobile,use_history:false};
+  usersCloud.push(newUser);
+  try{
+    const data=await ghGet('/contents/users.cloud.json');
+    const content=btoa(unescape(encodeURIComponent(JSON.stringify(usersCloud,null,2))));
+    await ghCommit('webpanel: 新用户 '+name,content,data.sha);
+    currentUser={...newUser,role:'user'};
+    localStorage.setItem('user',JSON.stringify(currentUser));
+    enterApp();
+    toast('注册成功！');
+  }catch(e){toast('注册失败: '+e.message);}
+}
+
+function logout(){
+  currentUser=null;usersCloud=[];
+  localStorage.removeItem('user');
+  $('#tabBar').style.display='none';$('#logoutBtn').style.display='none';
+  $('#adminTab').style.display='none';
+  $('#headerUser').textContent='';
+  $$('.tab').forEach(x=>x.classList.remove('active'));
+  $$('.tab-bar button').forEach(x=>x.classList.remove('active'));
+  $$('.tab-bar button')[0]?.classList.add('active');
+  $('#tab-auth').classList.add('active');
+  showLogin();
+}
+
+function enterApp(){
+  $('#tabBar').style.display='';$('#logoutBtn').style.display='';
+  $('#headerUser').textContent=currentUser.realname||currentUser.name;
+  if(currentUser.role==='admin')$('#adminTab').style.display='';
+  $$('.tab').forEach(x=>x.classList.remove('active'));
+  $('#tab-overview').classList.add('active');
+  renderOverview();renderScores();renderBlacklist();renderAdmin();
+}
+
+// --- Tab switching ---
+$$('.tab-bar button').forEach(b=>{
+  b.addEventListener('click',()=>{
+    $$('.tab-bar button').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    $$('.tab').forEach(x=>x.classList.remove('active'));
+    $(`#tab-${b.dataset.tab}`).classList.add('active');
+  });
+});
+
+// --- Overview ---
+function renderOverview(){
+  const u=currentUser;
+  $('#overviewStatus').innerHTML=`
+    <div class="status-row"><span class="label">姓名</span><span>${esc(u.realname||u.name)}</span></div>
+    <div class="status-row"><span class="label">手机</span><span>${u.mobile?'****'+esc(u.mobile.slice(-4)):'未填'}</span></div>
+    <div class="status-row"><span class="label">饭卡号</span><span>${esc(u.percode||'未绑定')}</span></div>
+    <div class="status-row"><span class="label">状态</span><span class="badge ${u.percode?'ok':'err'}">${u.percode?'已绑定':'未绑定'}</span></div>`;
+  const r=u.order_rules||{};
+  const weekdays=['一','二','三','四','五','六','日'];
+  $('#overviewRules').innerHTML=`
+    <div class="status-row"><span class="label">抢单日</span><span>周${weekdays[r.grab_on_weekday||5]}</span></div>
+    <div class="status-row"><span class="label">餐次</span><span>${(u.meals||['午餐','晚餐']).map(esc).join('、')}</span></div>
+    <div class="status-row"><span class="label">最低分</span><span>${u.min_score??0}</span></div>`;
+}
+
+// --- Scores ---
+function renderScores(){
+  const scores=currentUser.scores||{};
+  const items=Object.entries(scores).sort((a,b)=>b[1]-a[1]);
+  const el=$('#scoreList');
+  if(!items.length){el.innerHTML='<div class="empty">暂无评分</div>';return;}
+  el.innerHTML=items.map(([dish,score])=>{
+    const ed=esc(dish);
+    return `<div class="score-item">
+      <span class="dish">${ed}</span>
+      <select data-dish="${ed}" onchange="updateScore(this)">
+        ${[7,6,5,4,3,2,1,0].map(v=>`<option value="${v}" ${v==score?'selected':''}>${v}</option>`).join('')}
+      </select>
+      <span class="del" data-dish="${ed}" onclick="delScore(this)">×</span>
+    </div>`;
+  }).join('');
+}
+function updateScore(sel){currentUser.scores[sel.dataset.dish]=+sel.value;}
+function delScore(el){delete currentUser.scores[el.dataset.dish];renderScores();}
+
+function addScore(){
+  const d=$('#newDish').value.trim(),s=+$('#newScore').value;
+  if(!d){toast('请输入菜品名');return;}
+  if(!currentUser.scores)currentUser.scores={};
+  currentUser.scores[d]=s;$('#newDish').value='';renderScores();
+}
+
+function renderBlacklist(){
+  const bl=currentUser.blacklist||[];
+  $('#blacklist').innerHTML=bl.map(k=>`<span class="tag">${esc(k)} <span style="cursor:pointer" data-key="${esc(k)}" onclick="removeBlack(this)">×</span></span>`).join('')||'<div class="empty">暂无</div>';
+}
+function addBlack(){const k=$('#newBlack').value.trim();if(!k)return;if(!currentUser.blacklist)currentUser.blacklist=[];currentUser.blacklist.push(k);$('#newBlack').value='';renderBlacklist();}
+function removeBlack(el){const k=el.dataset.key;currentUser.blacklist=currentUser.blacklist.filter(x=>x!==k);renderBlacklist();}
+
+async function saveScores(){
+  if(!GH_TOKEN){toast('需要 GitHub Token 才能保存');return;}
+  currentUser.min_score=+$('#minScore').value;
+  currentUser.prefer_cheaper=$('#preferCheaper').checked;
+  try{
+    const data=await ghGet('/contents/users.cloud.json');
+    let users=JSON.parse(atob(data.content));
+    const idx=users.findIndex(x=>x.name===currentUser.name);
+    if(idx>=0)users[idx]={...users[idx],scores:currentUser.scores,blacklist:currentUser.blacklist,min_score:currentUser.min_score,prefer_cheaper:currentUser.prefer_cheaper};
+    const content=btoa(unescape(encodeURIComponent(JSON.stringify(users,null,2))));
+    await ghCommit('webpanel: 更新 '+currentUser.name+' 评分',content,data.sha);
+    usersCloud=users;
+    localStorage.setItem('user',JSON.stringify(currentUser));
+    toast('评分已保存并推送');
+  }catch(e){toast('保存失败: '+e.message);}
+}
+
+// --- Bind (epay API 直连浏览器) ---
+const EPAY='https://www.epay100.cn/901/6126/server/index.php';
+
+function genUuid(){
+  const h=Array.from({length:32},()=>Math.floor(Math.random()*16).toString(16)).join('');
+  const ds=new Date().toJSON().slice(2,10).replace(/-/g,'');
+  const rnd=Array.from({length:10},()=>'abcdefghijklmnopqrstuvwxyz0123456789'[Math.floor(Math.random()*36)]).join('');
+  return `finger-${h}-${ds}${rnd}`;
+}
+
+function epayPost(method,params,token){
+  const body=new URLSearchParams();
+  body.append('method',method);body.append('uni_id','6126');
+  body.append('client_uuid',params._uuid||'');body.append('attach','5.6.2607315');
+  Object.entries(params).forEach(([k,v])=>{if(k!=='_uuid')body.append(`data[${k}]`,v);});
+  return fetch(EPAY+'?mh901_method='+method+'&mh901_client_uuid='+(params._uuid||'')+'&mh901_rand='+Date.now()+'-'+Math.floor(Math.random()*1e8),{
+    method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','Authorization':token||''},body
+  }).then(r=>r.json());
+}
+
+let bindFlow={};
+
+async function bindStart(){
+  const percode=$('#bindPercode').value.trim(),mobile=$('#bindMobile').value.trim();
+  if(!percode||!mobile){toast('请填写饭卡号和手机号');return;}
+  $('#bindBtn').disabled=true;$('#bindBtn').textContent='发送中…';
+  try{
+    const uuid=genUuid();
+    const r1=await epayPost('app.portal.getOAuthUrl',{_uuid:uuid,redirect_uri:'https://www.epay100.cn/901/6126/',t_uri:'',uuid_serial:''});
+    const m=((r1.data||{}).url||'').match(/[?&]mh_code=([0-9a-f]+)/);
+    if(!m)throw new Error('获取授权失败');
+    const r2=await epayPost('app.portal.getOAuthUuid',{_uuid:uuid,mh_code:m[1],uuid_serial:''});
+    const token=(r2.data||{}).mh901_access_token_h5;
+    if(!token)throw new Error('获取令牌失败');
+    const r3=await epayPost('app.portal.setMemberRegiest',{_uuid:uuid,percode,password:'',mh_tag:'',realname:currentUser.realname||currentUser.name,mobile,verify_mob_code:''},token);
+    const reg=r3.data||{};
+    if(reg.is_mobile_verify){
+      await epayPost('app.common.sendSms',{_uuid:uuid,mobile,user_id:reg.user_id,user_salt:reg.user_salt,is_user_mobile_check:1},token);
+      bindFlow={uuid,token,mobile,user_id:reg.user_id,user_salt:reg.user_salt,percode};
+      $('#bindCodeArea').style.display='';
+      toast('验证码已发送');
+    }else{
+      throw new Error(reg.msg||'未要求手机验证');
+    }
+  }catch(e){toast('发送失败: '+e.message);}
+  $('#bindBtn').disabled=false;$('#bindBtn').textContent='发送验证码';
+}
+
+async function bindSubmit(){
+  const code=$('#bindCode').value.trim();
+  if(!code||code.length!==4){toast('请输入4位验证码');return;}
+  try{
+    const r4=await epayPost('app.portal.setMemberMobileCheck',{_uuid:bindFlow.uuid,mobile:bindFlow.mobile,code,user_id:bindFlow.user_id,user_salt:bindFlow.user_salt},bindFlow.token);
+    if(!['200','SUC0000'].includes(r4.code))throw new Error(r4.msg||'验证码错误');
+    const check=await epayPost('app.portal.getMember',{_uuid:bindFlow.uuid},bindFlow.token);
+    if(check.code!=='200')throw new Error(check.msg||'绑定失败');
+    // 更新 users.cloud.json
+    if(!GH_TOKEN){toast('绑定成功（本地）');return;}
+    const data=await ghGet('/contents/users.cloud.json');
+    let users=JSON.parse(atob(data.content));
+    const idx=users.findIndex(x=>x.name===currentUser.name);
+    if(idx>=0){
+      users[idx].percode=bindFlow.percode;
+      users[idx].mobile=bindFlow.mobile;
+      users[idx].delivery={...users[idx].delivery,name:currentUser.realname||currentUser.name,mobile:bindFlow.mobile};
+    }
+    const content=btoa(unescape(encodeURIComponent(JSON.stringify(users,null,2))));
+    await ghCommit('webpanel: '+currentUser.name+' 绑卡成功',content,data.sha);
+    usersCloud=users;currentUser={...currentUser,...users[idx]};
+    localStorage.setItem('user',JSON.stringify(currentUser));
+    toast('绑定成功！');renderOverview();
+  }catch(e){toast('绑定失败: '+e.message);}
+}
+
+// --- Admin ---
+function renderAdmin(){
+  if(currentUser.role!=='admin')return;
+  $('#adminUsers').innerHTML=usersCloud.map(u=>`<div class="status-row">
+    <span>${esc(u.realname||u.name)} <span class="tag">${esc(u.percode||'未绑')}</span></span>
+    <span>${esc(u.mobile||'')}</span>
+  </div>`).join('');
+}
+
+// --- Init ---
+(function(){
+  if(GH_TOKEN){$('#ghToken').value=GH_TOKEN;$('#ghRepo').value=GH_REPO;}
+  const saved=localStorage.getItem('user');
+  if(saved){
+    try{currentUser=JSON.parse(saved);enterApp();}catch(e){localStorage.removeItem('user');}
+  }
+})();
+</script>
+</body>
+</html>
