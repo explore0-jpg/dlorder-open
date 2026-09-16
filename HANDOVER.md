@@ -1,7 +1,7 @@
 # 交接文档 / HANDOVER
 
 > 生成时间：2026-09-13 13:40 (+08:00)　用途：换设备继续维护
-> 仓库：`explore0-jpg/dlorder-cloud`（**私有**）　本地路径：`~/dlorder`
+> 仓库：`explore0-jpg/dlorder-open`（**私有**）　本地路径：`~/dlorder`
 > 平台背景：温岭市第二中学食堂 ePay 点餐系统（mer_id `61266001`），本项目做"自动预演 + 周六统一抢订下周午晚餐"。
 
 ---
@@ -14,7 +14,7 @@
   - `cloud-grab` 每日 06:00 北京：最近几次"failure"，**属预期**——`notify.sh` 没配推送通道（BARK_KEY 未设）退出码 1 把 run 弄红，抢单逻辑本身正常。
   - `cloud-status`（新增，每 4h）：首次运行因 GitHub push 偶发 Internal Server Error 标红，已加 push 重试，待下一轮验证。
 - **账号 token 交接时均处于失效态**（C900903，被外部登录顶号）：
-  - self（梁明超）与 friend（毛佳豪）都需要重新绑一次（见 §5），否则周五预演/周六抢单会失败。
+  - self（演示用户A）与 friend（演示用户B）都需要重新绑一次（见 §5），否则周五预演/周六抢单会失败。
 - 未完成（下一步）：多用户网页服务平台（已定方案未开工）、评分表填分授权、Bark 推送 key。
 
 ---
@@ -48,11 +48,11 @@ GitHub Actions（云端执行体，免费定时器）
 
 | 用户 | 真实姓名 | 手机（收验证码） | 饭卡号 | 规则 |
 |---|---|---|---|---|
-| self | 梁明超 | 19330732884 | (config 未存，用手机短信) | 周六抢一窗，午+晚，min_score=1 |
-| friend | 毛佳豪 | 13666836741 | 20241510 | 周六抢一窗，午+晚，min_score=0（等填分后改回1），use_history=false 不加历史权重 |
+| self | 演示用户A | 13800000001 | (config 未存，用手机短信) | 周六抢一窗，午+晚，min_score=1 |
+| friend | 演示用户B | 13800000002 | 20240001 | 周六抢一窗，午+晚，min_score=0（等填分后改回1），use_history=false 不加历史权重 |
 
 - 配置各字段含义：`grab_on_weekday=5`(仅周六) / `require_both_meals_weekday=[6]`(周日需午晚齐备) / `cancelled=[]`(退餐名单，永不重下)。
-- 毛佳豪：180 天评分表已生成在旧设备 `/sdcard/Download/菜单评分表_毛佳豪_180天_全部.xlsx` 和 `_至少2次.xlsx`，等他填完分回来后导入 `scores`（填分后 min_score 调回 1）。
+- 演示用户B：180 天评分表已生成在旧设备 `/sdcard/Download/菜单评分表_演示用户B_180天_全部.xlsx` 和 `_至少2次.xlsx`，等他填完分回来后导入 `scores`（填分后 min_score 调回 1）。
 
 ---
 
@@ -87,21 +87,21 @@ GitHub Actions（云端执行体，免费定时器）
 ```bash
 git config --global http.version HTTP/1.1
 gh auth login
-git clone https://github.com/explore0-jpg/dlorder-cloud.git ~/dlorder && cd ~/dlorder
+git clone https://github.com/explore0-jpg/dlorder-open.git ~/dlorder && cd ~/dlorder
 python3 -c "import cloud_order"          # 自检依赖齐全
 gh secret list                            # 应能看到 §3 的条目
 ```
 
-**重绑 self**（验证码短信发到 19330732884）：
+**重绑 self**（验证码短信发到 13800000001）：
 ```bash
 python3 auto_login.py                              # 发短信，保存会话到 .login_state.json
 python3 auto_login.py --code <收到的4位码> --gh     # 完成后自动更新 config.json 并同步 GitHub Secrets
 ```
 
-**重绑 friend**（验证码到 13666836741，需毛佳豪本人）：
+**重绑 friend**（验证码到 13800000002，需演示用户B本人）：
 ```bash
 python3 auto_login.py --user friend \
-  --percode 20241510 --realname 毛佳豪 --mobile 13666836741
+  --percode 20240001 --realname 演示用户B --mobile 13800000002
 python3 auto_login.py --user friend --code <4位码> --gh
 ```
 
@@ -135,13 +135,13 @@ python3 cloud_order.py --date 20260919 --dry-run
 
 ## 7. 待办清单
 
-1. **[紧急] 重绑 friend**（毛佳豪 13666836741），等她提供验证码。
+1. **[紧急] 重绑 friend**（演示用户B 13800000002），等她提供验证码。
 2. **[配置] 补 BARK_KEY** 并在 `notify.sh` 验证（配好后 grab/preview 的 run 不再红）。
 3. **[已完成] 多用户网页服务平台**：
    - `webapp/app.py`：注册（口令 `wlsdezx`）→ 登录 → 绑卡向导 → 评分/预选 → 管理员面板
    - 部署：`cd webapp && bash tunnel.sh`（Cloudflare Tunnel 免费公网）或 `bash run.sh`（本地）
    - 架构：VPS/Web 管人 + GitHub Actions 管单，凭证不入库
-4. **[等待] 毛佳豪填好的评分表** → 导入 `scores`，min_score 0→1。
+4. **[等待] 演示用户B填好的评分表** → 导入 `scores`，min_score 0→1。
 5. **[可选] 顶号自愈**：让登录界面引导用户自己重绑（已做进绑定向导规划）。
 
 ---
