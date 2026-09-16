@@ -1,0 +1,26 @@
+{
+ "generated_at": "2026-09-16 23:38:32",
+ "window_start": "20260916",
+ "users": {
+  "self": {
+   "token_ok": false,
+   "auth_error": "缺少凭证（env CLOUD_UUID_SELF/CLOUD_TOKEN_SELF 未设置）",
+   "api_error": null,
+   "meals": [
+    "午餐",
+    "晚餐"
+   ]
+  },
+  "friend": {
+   "token_ok": false,
+   "auth_error": "缺少凭证（env CLOUD_UUID_FRIEND/CLOUD_TOKEN_FRIEND 未设置）",
+   "api_error": null,
+   "meals": [
+    "午餐",
+    "晚餐"
+   ]
+  }
+ },
+ "orders": {},
+ "menus": {}
+}
